@@ -1,2 +1,3 @@
-# md-blog-runner
-[Action] Generate markdown blog and host on GitHub Pages
+# Ready Markdown Blog
+
+GitHub Action that generates a blog from markdown and hosts on GitHub Pages

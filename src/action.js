@@ -7,9 +7,13 @@ import { generateBlog } from "./generateBlog";
   try {
     // Setup
     const rootPath = process.env.GITHUB_WORKSPACE || path.join(__dirname, "../")
+    const config = {
+      outputPath: path.join(rootPath, "/output"),
+      rootPath: rootPath
+    }
 
     // Generate blog
-    generateBlog(rootPath)
+    generateBlog(config)
 
     // Deploy to Pages
   } catch (error) {

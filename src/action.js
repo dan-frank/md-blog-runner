@@ -1,14 +1,18 @@
-import core from "@actions/core"
+import * as core from "@actions/core"
+import path from "path"
 
-import { run } from "./run.js"
-import { checkFile } from "./checkFile.js"
+import { generateBlog } from "./generateBlog";
 
 ( async () => {
-    try {
-        run()
-        checkFile("README.md")
-        checkFile("REQUIRED.md")
-    } catch (error) {
-        core.setFailed(error.message)
-    }
+  try {
+    // Setup
+    const rootPath = process.env.GITHUB_WORKSPACE || path.join(__dirname, "../")
+
+    // Generate blog
+    generateBlog(rootPath)
+
+    // Deploy to Pages
+  } catch (error) {
+    core.setFailed(error.message)
+  }
 } )();

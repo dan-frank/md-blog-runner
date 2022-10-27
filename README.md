@@ -1,3 +1,3 @@
 # Ready Markdown Blog
 
-GitHub Action that generates a blog from markdown and hosts on GitHub Pages
+GitHub Action to generate a blog from markdown and publish website to GitHub Pages

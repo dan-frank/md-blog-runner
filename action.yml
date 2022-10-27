@@ -1,11 +1,12 @@
 name: "Ready Markdown Blog"
-description: "GitHub Action that generates a blog from markdown and hosts on GitHub Pages"
+description: "GitHub Action to generate a blog from markdown and publish website to GitHub Pages"
 author: "@dan-frank"
 
 inputs:
   GITHUB_TOKEN:
-    description: "GitHub token"
+    description: "Only customise this token if you want to push to another GitHub repository"
     required: true
+    default: ${{ github.token }}
 
 runs:
   using: "node16"

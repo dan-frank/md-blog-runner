@@ -1,8 +1,9 @@
 import * as core from "@actions/core"
 import * as github from '@actions/github'
 import path from "path"
-import { deploy } from "./deploy"
-import { generateBlog } from "./generateBlog"
+import { deploy } from "./scripts/deploy"
+import { generateBlog } from "./scripts/generateBlog"
+import { prepareTheme } from "./scripts/prepareTheme"
 
 ( async () => {
   try {
@@ -13,6 +14,7 @@ import { generateBlog } from "./generateBlog"
     const rootPath = process.env.GITHUB_WORKSPACE || path.join(__dirname, "../")
     
     const config = {
+      actionDir: path.join(__dirname, "../"),
       actionName: "Ready Markdown Blog",
       outputPath: path.join(rootPath, "/output"),
       pusherEmail: pusher?.email || process.env.GITHUB_PUSHER_EMAIL,
@@ -23,8 +25,9 @@ import { generateBlog } from "./generateBlog"
       repoUrl: `https://${`x-access-token:${repoToken}`}@github.com/${repoName}.git`
     }
 
-    generateBlog(config)
-      .then(() => deploy(config))
+    await generateBlog(config)
+    await prepareTheme(config)
+    await deploy(config)
   } catch (error) {
     core.setFailed(error.message)
   }

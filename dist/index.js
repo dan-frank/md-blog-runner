@@ -140,7 +140,6 @@ const file_command_1 = __nccwpck_require__(717);
 const utils_1 = __nccwpck_require__(5278);
 const os = __importStar(__nccwpck_require__(2037));
 const path = __importStar(__nccwpck_require__(1017));
-const uuid_1 = __nccwpck_require__(8974);
 const oidc_utils_1 = __nccwpck_require__(8041);
 /**
  * The code to exit an action
@@ -170,20 +169,9 @@ function exportVariable(name, val) {
     process.env[name] = convertedVal;
     const filePath = process.env['GITHUB_ENV'] || '';
     if (filePath) {
-        const delimiter = `ghadelimiter_${uuid_1.v4()}`;
-        // These should realistically never happen, but just in case someone finds a way to exploit uuid generation let's not allow keys or values that contain the delimiter.
-        if (name.includes(delimiter)) {
-            throw new Error(`Unexpected input: name should not contain the delimiter "${delimiter}"`);
-        }
-        if (convertedVal.includes(delimiter)) {
-            throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
-        }
-        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
-        file_command_1.issueCommand('ENV', commandValue);
+        return file_command_1.issueFileCommand('ENV', file_command_1.prepareKeyValueMessage(name, val));
     }
-    else {
-        command_1.issueCommand('set-env', { name }, convertedVal);
-    }
+    command_1.issueCommand('set-env', { name }, convertedVal);
 }
 exports.exportVariable = exportVariable;
 /**
@@ -201,7 +189,7 @@ exports.setSecret = setSecret;
 function addPath(inputPath) {
     const filePath = process.env['GITHUB_PATH'] || '';
     if (filePath) {
-        file_command_1.issueCommand('PATH', inputPath);
+        file_command_1.issueFileCommand('PATH', inputPath);
     }
     else {
         command_1.issueCommand('add-path', {}, inputPath);
@@ -241,7 +229,10 @@ function getMultilineInput(name, options) {
     const inputs = getInput(name, options)
         .split('\n')
         .filter(x => x !== '');
-    return inputs;
+    if (options && options.trimWhitespace === false) {
+        return inputs;
+    }
+    return inputs.map(input => input.trim());
 }
 exports.getMultilineInput = getMultilineInput;
 /**
@@ -274,8 +265,12 @@ exports.getBooleanInput = getBooleanInput;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setOutput(name, value) {
+    const filePath = process.env['GITHUB_OUTPUT'] || '';
+    if (filePath) {
+        return file_command_1.issueFileCommand('OUTPUT', file_command_1.prepareKeyValueMessage(name, value));
+    }
     process.stdout.write(os.EOL);
-    command_1.issueCommand('set-output', { name }, value);
+    command_1.issueCommand('set-output', { name }, utils_1.toCommandValue(value));
 }
 exports.setOutput = setOutput;
 /**
@@ -404,7 +399,11 @@ exports.group = group;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function saveState(name, value) {
-    command_1.issueCommand('save-state', { name }, value);
+    const filePath = process.env['GITHUB_STATE'] || '';
+    if (filePath) {
+        return file_command_1.issueFileCommand('STATE', file_command_1.prepareKeyValueMessage(name, value));
+    }
+    command_1.issueCommand('save-state', { name }, utils_1.toCommandValue(value));
 }
 exports.saveState = saveState;
 /**
@@ -470,13 +469,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.issueCommand = void 0;
+exports.prepareKeyValueMessage = exports.issueFileCommand = void 0;
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fs = __importStar(__nccwpck_require__(7147));
 const os = __importStar(__nccwpck_require__(2037));
+const uuid_1 = __nccwpck_require__(8974);
 const utils_1 = __nccwpck_require__(5278);
-function issueCommand(command, message) {
+function issueFileCommand(command, message) {
     const filePath = process.env[`GITHUB_${command}`];
     if (!filePath) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
@@ -488,7 +488,22 @@ function issueCommand(command, message) {
         encoding: 'utf8'
     });
 }
-exports.issueCommand = issueCommand;
+exports.issueFileCommand = issueFileCommand;
+function prepareKeyValueMessage(key, value) {
+    const delimiter = `ghadelimiter_${uuid_1.v4()}`;
+    const convertedValue = utils_1.toCommandValue(value);
+    // These should realistically never happen, but just in case someone finds a
+    // way to exploit uuid generation let's not allow keys or values that contain
+    // the delimiter.
+    if (key.includes(delimiter)) {
+        throw new Error(`Unexpected input: name should not contain the delimiter "${delimiter}"`);
+    }
+    if (convertedValue.includes(delimiter)) {
+        throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
+    }
+    return `${key}<<${delimiter}${os.EOL}${convertedValue}${os.EOL}${delimiter}`;
+}
+exports.prepareKeyValueMessage = prepareKeyValueMessage;
 //# sourceMappingURL=file-command.js.map
 
 /***/ }),
@@ -6245,63 +6260,67 @@ exports.request = request;
 /***/ 3682:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-var register = __nccwpck_require__(4670)
-var addHook = __nccwpck_require__(5549)
-var removeHook = __nccwpck_require__(6819)
+var register = __nccwpck_require__(4670);
+var addHook = __nccwpck_require__(5549);
+var removeHook = __nccwpck_require__(6819);
 
 // bind with array of arguments: https://stackoverflow.com/a/21792913
-var bind = Function.bind
-var bindable = bind.bind(bind)
+var bind = Function.bind;
+var bindable = bind.bind(bind);
 
-function bindApi (hook, state, name) {
-  var removeHookRef = bindable(removeHook, null).apply(null, name ? [state, name] : [state])
-  hook.api = { remove: removeHookRef }
-  hook.remove = removeHookRef
-
-  ;['before', 'error', 'after', 'wrap'].forEach(function (kind) {
-    var args = name ? [state, kind, name] : [state, kind]
-    hook[kind] = hook.api[kind] = bindable(addHook, null).apply(null, args)
-  })
+function bindApi(hook, state, name) {
+  var removeHookRef = bindable(removeHook, null).apply(
+    null,
+    name ? [state, name] : [state]
+  );
+  hook.api = { remove: removeHookRef };
+  hook.remove = removeHookRef;
+  ["before", "error", "after", "wrap"].forEach(function (kind) {
+    var args = name ? [state, kind, name] : [state, kind];
+    hook[kind] = hook.api[kind] = bindable(addHook, null).apply(null, args);
+  });
 }
 
-function HookSingular () {
-  var singularHookName = 'h'
+function HookSingular() {
+  var singularHookName = "h";
   var singularHookState = {
-    registry: {}
-  }
-  var singularHook = register.bind(null, singularHookState, singularHookName)
-  bindApi(singularHook, singularHookState, singularHookName)
-  return singularHook
+    registry: {},
+  };
+  var singularHook = register.bind(null, singularHookState, singularHookName);
+  bindApi(singularHook, singularHookState, singularHookName);
+  return singularHook;
 }
 
-function HookCollection () {
+function HookCollection() {
   var state = {
-    registry: {}
-  }
+    registry: {},
+  };
 
-  var hook = register.bind(null, state)
-  bindApi(hook, state)
+  var hook = register.bind(null, state);
+  bindApi(hook, state);
 
-  return hook
+  return hook;
 }
 
-var collectionHookDeprecationMessageDisplayed = false
-function Hook () {
+var collectionHookDeprecationMessageDisplayed = false;
+function Hook() {
   if (!collectionHookDeprecationMessageDisplayed) {
-    console.warn('[before-after-hook]: "Hook()" repurposing warning, use "Hook.Collection()". Read more: https://git.io/upgrade-before-after-hook-to-1.4')
-    collectionHookDeprecationMessageDisplayed = true
+    console.warn(
+      '[before-after-hook]: "Hook()" repurposing warning, use "Hook.Collection()". Read more: https://git.io/upgrade-before-after-hook-to-1.4'
+    );
+    collectionHookDeprecationMessageDisplayed = true;
   }
-  return HookCollection()
+  return HookCollection();
 }
 
-Hook.Singular = HookSingular.bind()
-Hook.Collection = HookCollection.bind()
+Hook.Singular = HookSingular.bind();
+Hook.Collection = HookCollection.bind();
 
-module.exports = Hook
+module.exports = Hook;
 // expose constructors as a named property for TypeScript
-module.exports.Hook = Hook
-module.exports.Singular = Hook.Singular
-module.exports.Collection = Hook.Collection
+module.exports.Hook = Hook;
+module.exports.Singular = Hook.Singular;
+module.exports.Collection = Hook.Collection;
 
 
 /***/ }),
@@ -19322,7 +19341,7 @@ var external_path_ = __nccwpck_require__(1017);
 var external_path_default = /*#__PURE__*/__nccwpck_require__.n(external_path_);
 // EXTERNAL MODULE: ./node_modules/@actions/exec/lib/exec.js
 var exec = __nccwpck_require__(1514);
-;// CONCATENATED MODULE: ./src/deploy.js
+;// CONCATENATED MODULE: ./src/scripts/deploy.js
 
 
 /**
@@ -19347,7 +19366,7 @@ var markdown_it_default = /*#__PURE__*/__nccwpck_require__.n(markdown_it);
 // EXTERNAL MODULE: external "fs"
 var external_fs_ = __nccwpck_require__(7147);
 var external_fs_default = /*#__PURE__*/__nccwpck_require__.n(external_fs_);
-;// CONCATENATED MODULE: ./src/files.js
+;// CONCATENATED MODULE: ./src/scripts/files.js
 
 
 
@@ -19378,11 +19397,11 @@ async function getFiles(dirPath) {
  */
 async function readFile(path) {
   return external_fs_default().promises.readFile(path)
-    .then((post) => {
-      return ""+post
+    .then((file) => {
+      return ""+file
     })
     .catch((error) => {
-      core.warning(`Failed to read post of path '${postPath}' due to -- ${error}`)
+      core.warning(`Failed to read file on path '${path}' due to -- ${error}`)
       return ""
     })
 }
@@ -19402,26 +19421,27 @@ async function createDirIfNotExists(dir) {
  * Create file from passed content.
  * 
  * @param {string} dirPath directory path to write files too
- * @param {string} name file name to write
+ * @param {string} name file name to write (Needs a fullstop [.])
  * @param {string} extension file extension to write
  * @param {string} content file content to include in new file
  * @returns {Promise} for file writting success
  */
 async function writeFile(dirPath, name, extension, content) {
   createDirIfNotExists(dirPath)
-    .then(() => {
+    .then(async () => {
       const file = `${name.substring(0, name.indexOf("."))}.${extension}`
-
       const filePath = external_path_default().join(dirPath, file)
-      return external_fs_default().promises.writeFile(filePath, content)
-        .then(() => { return true })
-        .catch((error) => {
-          core.warning(`Failed to write to path '${filePath}' due to -- ${error}`)
-        })
+      try {
+        await external_fs_default().promises.writeFile(filePath, content)
+        return true
+      } catch (error) {
+        core.warning(`Failed to write to path '${filePath}' due to -- ${error}`)
+        return false
+      }
     });
 }
 
-;// CONCATENATED MODULE: ./src/generateBlog.js
+;// CONCATENATED MODULE: ./src/scripts/generateBlog.js
 
 
 
@@ -19432,7 +19452,7 @@ async function writeFile(dirPath, name, extension, content) {
  * @param {object} config project configuration
  */
 async function generateBlog(config) {
-  generatePosts(config)
+  await generatePosts(config)
 }
 
 /**
@@ -19449,13 +19469,48 @@ async function generatePosts(config) {
         const postPath = external_path_default().join(config.rootPath, postsDir, postName)
         readFile(postPath)
           .then((postContent) => {
-            writeFile(external_path_default().join(config.outputPath, postsDir), postName, "html", md.render(postContent))
+            /**
+             * TODO
+             * - Add specific style classes for edge case HTML tags
+             * - Add ID's to headings that consist of the heading text
+             */
+            var postHtml = `<article class="prose lg:prose-xl">${md.render(postContent)}</article>`
+            // var postHtml = md.render(postContent)
+            //   .replaceAll("<h1>", "<h1 class=\"text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight\">")
+            //   .replaceAll("<p>", "<p class=\"text-normal text-gray-800\">")
+            writeFile(external_path_default().join(config.outputPath, postsDir), postName, "html", postHtml)
           })
-      });
+      })
+    })
+}
+
+;// CONCATENATED MODULE: ./src/scripts/prepareTheme.js
+
+
+
+/**
+ * ~~Creates and~~ adds theme files to blog.
+ * 
+ * @param {object} config project configuration
+ */
+async function prepareTheme(config) {
+  await fetchCss(config)
+}
+
+/**
+ * Finds and adds compiled css to blog.
+ * 
+ * @param {object} config project configuration
+ */
+async function fetchCss(config) {
+  readFile(external_path_default().join(config.actionDir, "dist", "main.css"))
+    .then((cssContent) => {
+      writeFile(external_path_default().join(config.outputPath), "main.css", "css", cssContent) 
     })
 }
 
 ;// CONCATENATED MODULE: ./src/action.js
+
 
 
 
@@ -19471,6 +19526,7 @@ async function generatePosts(config) {
     const rootPath = process.env.GITHUB_WORKSPACE || external_path_default().join(__dirname, "../")
     
     const config = {
+      actionDir: external_path_default().join(__dirname, "../"),
       actionName: "Ready Markdown Blog",
       outputPath: external_path_default().join(rootPath, "/output"),
       pusherEmail: pusher?.email || process.env.GITHUB_PUSHER_EMAIL,
@@ -19481,8 +19537,9 @@ async function generatePosts(config) {
       repoUrl: `https://${`x-access-token:${repoToken}`}@github.com/${repoName}.git`
     }
 
-    generateBlog(config)
-      .then(() => deploy(config))
+    await generateBlog(config)
+    await prepareTheme(config)
+    await deploy(config)
   } catch (error) {
     core.setFailed(error.message)
   }

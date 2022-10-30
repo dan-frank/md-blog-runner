@@ -9,6 +9,7 @@ import { prepareTheme } from "./scripts/prepareTheme"
   try {
     const { pusher, repository } = github.context.payload
 
+    const pusherName = pusher?.name || process.env.GITHUB_PUSHER_NAME
     const repoName = repository?.full_name || process.env.GITHUB_REPOSITORY
     const repoToken = core.getInput('GITHUB_TOKEN') || process.env.GITHUB_TOKEN || github.token
     const rootPath = process.env.GITHUB_WORKSPACE || path.join(__dirname, "../")
@@ -17,8 +18,9 @@ import { prepareTheme } from "./scripts/prepareTheme"
       actionDir: path.join(__dirname, "../"),
       actionName: "Ready Markdown Blog",
       outputPath: path.join(rootPath, "/output"),
+      outputUrl: `https://${pusherName}.github.io/${repoName.substring(repoName.indexOf("/") + 1, repoName.length)}`,
       pusherEmail: pusher?.email || process.env.GITHUB_PUSHER_EMAIL,
-      pusherName: pusher?.name || process.env.GITHUB_PUSHER_NAME,
+      pusherName: pusherName,
       repoBranch: "gh-pages",
       repoName: repoName,
       rootPath: rootPath,

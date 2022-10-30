@@ -18,6 +18,6 @@ export async function prepareTheme(config) {
 async function fetchCss(config) {
   readFile(path.join(config.actionDir, "dist", "main.css"))
     .then((cssContent) => {
-      writeFile(path.join(config.outputPath), "main.css", "css", cssContent) 
+      writeFile(path.join(config.outputPath), "main.css", cssContent) 
     })
 }

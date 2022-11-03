@@ -23743,9 +23743,9 @@ async function generateBlog(config) {
     * - - Footer
     */
   const posts = generateAllPosts(config).sort((a, b) => {
-    const date1 = dayjs_min_default()(a.date).format("ddd, DD MMMM YYYY")
-    const date2 = dayjs_min_default()(b.date).format("ddd, DD MMMM YYYY")
-    date2 - date1
+    const date1 = dayjs_min_default()(a.date).format("YYYYMMDD") * 1
+    const date2 = dayjs_min_default()(b.date).format("YYYYMMDD") * 1
+    return date2 - date1
   })
 
   generatePosts(config, posts)

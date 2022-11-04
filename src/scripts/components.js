@@ -3,18 +3,19 @@ import dayjs from "dayjs";
 /**
  * Generates meta tags from passed object of attributes.
  *
+ * @param {object} config project configuration
  * @param {object} attributes object of attributes, can be empty
  * @returns {string} HTML formatted meta tags
  */
-export function metaComponent(attributes) {
+export function metaComponent(config, attributes) {
   const exceptions = ["date"];
 
   let meta = "";
   for (const attribute in attributes) {
     if (attribute == "title") {
       meta +=
-        `<title>${attributes[attribute]}</title>` +
-        `<meta property="og:title" content="${attributes[attribute]}" />\n`;
+        `<title>${attributes[attribute]} - ${config.blogName}</title>` +
+        `<meta property="og:title" content="${attributes[attribute]} - ${config.blogName}" />\n`;
     } else if (attribute == "description") {
       meta +=
         `<meta name="description" content="${attributes[attribute]}" />\n` +

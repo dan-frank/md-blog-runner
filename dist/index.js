@@ -23722,18 +23722,19 @@ async function writeFile(dirPath, file, content) {
 /**
  * Generates meta tags from passed object of attributes.
  *
+ * @param {object} config project configuration
  * @param {object} attributes object of attributes, can be empty
  * @returns {string} HTML formatted meta tags
  */
-function metaComponent(attributes) {
+function metaComponent(config, attributes) {
   const exceptions = ["date"];
 
   let meta = "";
   for (const attribute in attributes) {
     if (attribute == "title") {
       meta +=
-        `<title>${attributes[attribute]}</title>` +
-        `<meta property="og:title" content="${attributes[attribute]}" />\n`;
+        `<title>${attributes[attribute]} - ${config.blogName}</title>` +
+        `<meta property="og:title" content="${attributes[attribute]} - ${config.blogName}" />\n`;
     } else if (attribute == "description") {
       meta +=
         `<meta name="description" content="${attributes[attribute]}" />\n` +
@@ -23845,28 +23846,7 @@ async function generateBlog(config) {
     const date2 = dayjs_min_default()(b.date).format("YYYYMMDD") * 1;
     return date2 - date1;
   });
-
-  const configPlus = {
-    ...config,
-    globals: {
-      header: `<html>
-    <head>
-      ={meta}=
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <link rel="stylesheet" href="${config.outputUrl}/main.css" />
-    </head>
-    <body class="bg-white dark:bg-slate-900">
-      <main class="container mx-auto flex flex-col gap-12 py-16">
-`, // head [general meta, *replace* meta], nav
-      footer: `    </main>
-      <footer>
-        This will be a footer
-      </footer>
-    </body>
-  </html>
-`, // logo, latest posts, site links [home, about, posts, contact]
-    },
-  };
+  const configPlus = getConfigPlus(config);
 
   generateAllPosts(configPlus, posts);
   generatePosts(configPlus, posts);
@@ -23928,7 +23908,7 @@ function generateAllPosts(config, posts) {
       external_path_default().join(config.outputPath, config.postsDir),
       `${post.name}.html`,
       postTemplate
-        .replace("={meta}=", metaComponent(post.meta))
+        .replace("={meta}=", metaComponent(config, post.meta))
         .replace("={cover}=", coverImageComponent(post.cover))
         .replace("={date}=", dateComponent(post.date))
         .replace("={content}=", md.render(post.body))
@@ -23956,7 +23936,10 @@ function generatePosts(config, posts) {
     config.outputPath,
     "posts.html",
     postsTemplate
-      .replace("={meta}=", `<title>My Super Awesome Posts!</title>`)
+      .replace(
+        "={meta}=",
+        `<title>My Super Awesome Posts! - ${config.blogName}</title>`
+      )
       .replace("={css}=", `${config.outputUrl}/main.css`)
       .replace(
         "={posts}=",
@@ -23987,7 +23970,7 @@ function generateHome(config, posts) {
     config.outputPath,
     "index.html",
     homeTemplate
-      .replace("={meta}=", `<title>My Super Awesome Blog!</title>`)
+      .replace("={meta}=", `<title>${config.blogName}</title>`)
       .replace("={css}=", `${config.outputUrl}/main.css`)
       .replace(
         "={posts}=",
@@ -23998,6 +23981,108 @@ function generateHome(config, posts) {
           .join("\n")
       )
   );
+}
+
+/**
+ * Generates config + header and footer parts.
+ *
+ * @param {object} config project configuration
+ * @param {object[]} posts posts objects
+ */
+function getConfigPlus(config) {
+  return {
+    ...config,
+    globals: {
+      header: `<html>
+    <head>
+      ={meta}=
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="stylesheet" href="${config.outputUrl}/main.css" />
+    </head>
+    <body class="min-h-screen flex flex-col bg-white dark:bg-slate-900">
+      <div class="grow-0 shrink-0 relative bg-white dark:bg-slate-800 border-b-2 border-gray-100 dark:border-slate-900">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6">
+          <div class="flex items-center justify-between py-6 md:justify-start md:space-x-10">
+            <div class="flex justify-start lg:w-0 lg:flex-1">
+              <a href="${config.outputUrl}">
+                <span class="sr-only">${config.blogName}</span>
+                <img class="h-8 w-auto sm:h-10" src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600" alt="">
+              </a>
+            </div>
+            <div class="-my-2 -mr-2 md:hidden">
+              <button type="button" class="inline-flex items-center justify-center rounded-md bg-white p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500" aria-expanded="false">
+                <span class="sr-only">Open menu</span>
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+              </button>
+            </div>
+            <nav class="hidden space-x-10 md:flex md:items-center">
+              <a href="${config.outputUrl}" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Home</a>
+              <a href="${config.outputUrl}/posts.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Posts</a>
+              <!--
+              <a href="${config.outputUrl}/about.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">About</a>
+              <a href="${config.outputUrl}/contact.html" class="ml-8 inline-flex items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700">Contact</a>
+              -->
+            </nav>
+          </div>
+        </div>
+        <div class="absolute inset-x-0 top-0 origin-top-right transform p-2 transition md:hidden">
+          <div class="divide-y-2 divide-gray-50 rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5">
+            <div class="px-5 pt-5 pb-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <img class="h-8 w-auto" src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600" alt="${config.blogName}">
+                </div>
+                <div class="-mr-2">
+                  <button type="button" class="inline-flex items-center justify-center rounded-md bg-white p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                    <span class="sr-only">Close menu</span>
+                    <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="mt-6">
+                <nav class="grid gap-y-8">
+                <a href="${config.outputUrl}" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Home</a>
+                <a href="${config.outputUrl}/posts.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Posts</a>
+                <!--
+                <a href="${config.outputUrl}/about.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">About</a>
+                -->
+                </nav>
+              </div>
+            </div>
+            <!--
+            <div class="space-y-6 py-6 px-5">
+              <div>
+                <a href="${config.outputUrl}/contact.html" class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm">Contact</a>
+              </div>
+            </div>
+            -->
+          </div>
+        </div>
+      </div>
+      <main class="grow-0 shrink-0 mx-auto max-w-7xl w-full flex flex-col gap-12 py-16">
+`, // TODO generic meta, rss feed
+      footer: `    </main>
+      <footer class="grow shrink-0 bg-gray-100 dark:bg-slate-800">
+        <div class="mx-auto max-w-7xl">
+          <div class="flex flex-col justify-center text-gray-800 p-4 border-t-2 border-gray-100 md:flex-row md:justify-between dark:justify-center dark:text-gray-100 dark:border-slate-900">
+            <p class="text-slate-500 dark:text-slate-400">
+              &copy; 2021 Copyright: <a class="text-gray-700 dark:text-gray-200" href="${config.outputUrl}">${config.blogName}</a>
+            </p>
+            <p class="text-slate-500 dark:text-slate-400">
+              Social links...
+            </p>
+          </div>
+        </div>
+      </footer>
+    </body>
+  </html>
+`, // TODO Optional newletter signup / maybe logo, latest posts, site links [home, about, posts, contact]
+    },
+  };
 }
 
 ;// CONCATENATED MODULE: ./src/scripts/prepareTheme.js
@@ -24034,36 +24119,42 @@ async function fetchCss(config) {
 
 
 
-( async () => {
+(async () => {
   try {
-    const { pusher, repository } = github.context.payload
+    const { pusher, repository } = github.context.payload;
 
-    const pusherName = pusher?.name || process.env.GITHUB_PUSHER_NAME
-    const repoName = repository?.full_name || process.env.GITHUB_REPOSITORY
-    const repoToken = core.getInput('GITHUB_TOKEN') || process.env.GITHUB_TOKEN || github.token
-    const rootPath = process.env.GITHUB_WORKSPACE || external_path_default().join(__dirname, "../")
-    
+    const pusherName = pusher?.name || process.env.GITHUB_PUSHER_NAME;
+    const repoName = repository?.full_name || process.env.GITHUB_REPOSITORY;
+    const repoToken =
+      core.getInput("GITHUB_TOKEN") || process.env.GITHUB_TOKEN || github.token;
+    const rootPath =
+      process.env.GITHUB_WORKSPACE || external_path_default().join(__dirname, "../");
+
     const config = {
       actionDir: external_path_default().join(__dirname, "../"),
       actionName: "Ready Markdown Blog",
+      blogName: "My Super Awesome Blog!",
       outputPath: external_path_default().join(rootPath, "/output"),
-      outputUrl: `https://${pusherName}.github.io/${repoName.substring(repoName.indexOf("/") + 1, repoName.length)}`,
+      outputUrl: `https://${pusherName}.github.io/${repoName.substring(
+        repoName.indexOf("/") + 1,
+        repoName.length
+      )}`,
       postsDir: "posts",
       pusherEmail: pusher?.email || process.env.GITHUB_PUSHER_EMAIL,
       pusherName: pusherName,
       repoBranch: "gh-pages",
       repoName: repoName,
       rootPath: rootPath,
-      repoUrl: `https://${`x-access-token:${repoToken}`}@github.com/${repoName}.git`
-    }
+      repoUrl: `https://${`x-access-token:${repoToken}`}@github.com/${repoName}.git`,
+    };
 
-    await generateBlog(config)
-    await prepareTheme(config)
-    await deploy(config)
+    await generateBlog(config);
+    await prepareTheme(config);
+    await deploy(config);
   } catch (error) {
-    core.setFailed(error.message)
+    core.setFailed(error.message);
   }
-} )();
+})();
 
 })();
 

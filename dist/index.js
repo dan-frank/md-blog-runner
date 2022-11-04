@@ -23607,18 +23607,26 @@ var exec = __nccwpck_require__(1514);
 
 /**
  * Deploys output directory to new branch.
- * 
+ *
  * @param {object} config project configuration
  */
 async function deploy(config) {
   await (0,exec.exec)(`git init ${config.outputPath}`);
-  await (0,exec.exec)(`git -C ${config.outputPath} config --global user.email ${config.pusherEmail}`)
-  await (0,exec.exec)(`git -C ${config.outputPath} config --global user.name ${config.pusherName}`)
-  await (0,exec.exec)(`git -C ${config.outputPath} remote add origin ${config.repoUrl}`)
-  await (0,exec.exec)(`git -C ${config.outputPath} checkout -b ${config.repoBranch}`)
-  await (0,exec.exec)(`git -C ${config.outputPath} add -A`)
-  await (0,exec.exec)(`git -C ${config.outputPath} commit -m "[${config.actionName}] Generated blog"`)
-  await (0,exec.exec)(`git -C ${config.outputPath} push --set-upstream origin ${config.repoBranch} --force`)
+  await (0,exec.exec)(
+    `git -C ${config.outputPath} config --global user.email ${config.pusherEmail}`
+  );
+  await (0,exec.exec)(
+    `git -C ${config.outputPath} config --global user.name ${config.pusherName}`
+  );
+  await (0,exec.exec)(`git -C ${config.outputPath} remote add origin ${config.repoUrl}`);
+  await (0,exec.exec)(`git -C ${config.outputPath} checkout -b ${config.repoBranch}`);
+  await (0,exec.exec)(`git -C ${config.outputPath} add -A`);
+  await (0,exec.exec)(
+    `git -C ${config.outputPath} commit -m "[${config.actionName}] Generated blog"`
+  );
+  await (0,exec.exec)(
+    `git -C ${config.outputPath} push --set-upstream origin ${config.repoBranch} --force`
+  );
 }
 
 // EXTERNAL MODULE: ./node_modules/dayjs/dayjs.min.js
@@ -23639,7 +23647,7 @@ var markdown_it_default = /*#__PURE__*/__nccwpck_require__.n(markdown_it);
 
 // /**
 //  * Reads all files from directory.
-//  * 
+//  *
 //  * @param {string} dirPath directory to read files from
 //  * @param {string} extensionFilter if not empty string, filter found files to only those with extension
 //  * @returns {string[]} array of all found files
@@ -23661,52 +23669,141 @@ var markdown_it_default = /*#__PURE__*/__nccwpck_require__.n(markdown_it);
 
 /**
  * Reads file from passed path.
- * 
+ *
  * @param {string} path path to file
  * @returns {string} contents of the file or empty string
  */
 async function readFile(path) {
   return external_fs_default().promises.readFile(path)
     .then((file) => {
-      return ""+file
+      return "" + file;
     })
     .catch((error) => {
-      core.warning(`Failed to read file on path '${path}' due to -- ${error}`)
-      return ""
-    })
+      core.warning(`Failed to read file on path '${path}' due to -- ${error}`);
+      return "";
+    });
 }
 
 /**
  * Creates directory if it doesn't already exist.
- * 
+ *
  * @param {string} dir directory path to create
  * @author https://www.30secondsofcode.org/js/s/create-dir-if-not-exists
  * @author https://stackoverflow.com/a/26815894
  */
 async function createDirIfNotExists(dir) {
-  !external_fs_default().existsSync(dir) ? external_fs_default().mkdirSync(dir, { recursive: true }) : undefined
+  !external_fs_default().existsSync(dir) ? external_fs_default().mkdirSync(dir, { recursive: true }) : undefined;
 }
 
 /**
  * Create file from passed content.
- * 
+ *
  * @param {string} dirPath directory path to write files too
  * @param {string} file file name to write
  * @param {string} content file content to include in new file
  * @returns {Promise} for file writting success
  */
 async function writeFile(dirPath, file, content) {
-  createDirIfNotExists(dirPath)
-    .then(async () => {
-      const filePath = external_path_default().join(dirPath, file)
-      try {
-        await external_fs_default().promises.writeFile(filePath, content)
-        return true
-      } catch (error) {
-        core.warning(`Failed to write to path '${filePath}' due to -- ${error}`)
-        return false
-      }
-    });
+  createDirIfNotExists(dirPath).then(async () => {
+    const filePath = external_path_default().join(dirPath, file);
+    try {
+      await external_fs_default().promises.writeFile(filePath, content);
+      return true;
+    } catch (error) {
+      core.warning(`Failed to write to path '${filePath}' due to -- ${error}`);
+      return false;
+    }
+  });
+}
+
+;// CONCATENATED MODULE: ./src/scripts/components.js
+
+
+/**
+ * Generates meta tags from passed object of attributes.
+ *
+ * @param {object} attributes object of attributes, can be empty
+ * @returns {string} HTML formatted meta tags
+ */
+function metaComponent(attributes) {
+  const exceptions = ["date"];
+
+  let meta = "";
+  for (const attribute in attributes) {
+    if (attribute == "title") {
+      meta +=
+        `<title>${attributes[attribute]}</title>` +
+        `<meta property="og:title" content="${attributes[attribute]}" />\n`;
+    } else if (attribute == "description") {
+      meta +=
+        `<meta name="description" content="${attributes[attribute]}" />\n` +
+        `<meta property="og:description" content="${attributes[attribute]}" />\n`;
+    } else if (attribute == "image") {
+      meta += `<meta property="og:image" content="${attributes[attribute]}" />\n`;
+    } else if (attribute.startsWith("og:")) {
+      meta += `<meta property="${attribute}" content="${attributes[attribute]}" />\n`;
+    } else if (!exceptions.includes(attribute)) {
+      meta += `<meta name="${attribute}" content="${attributes[attribute]}" />\n`;
+    }
+  }
+  return meta;
+}
+
+/**
+ * Generates banner image HTML.
+ *
+ * @param {string} imageSrc image source
+ * @returns {string} HTML formatted image banner
+ */
+function coverImageComponent(imageSrc) {
+  if (!imageSrc) return "";
+  return `<div class="aspect-w-16 aspect-h-8 rounded-xl overflow-hidden">
+    <img src="${imageSrc}" alt="image" class="object-cover" />
+  </div>`;
+}
+
+/**
+ * Generates banner image HTML.
+ *
+ * @param {string} date image source
+ * @returns {string} HTML formatted image banner
+ */
+function dateComponent(date) {
+  const nicedate = dayjs_min_default()(date ? date : "").format("ddd, DD MMMM YYYY");
+
+  return `<div class="mb-2 text-normal text-slate-700 dark:text-slate-400"
+    <time datetime="${date}">${nicedate}</time>
+  </div>`;
+}
+
+/**
+ * Creates and returns HTML post block.
+ *
+ * @param {object} post posts object
+ * @returns {string} HTML formatted post block
+ */
+function postBlockComponent(post, sourceUrl) {
+  return `          <a href="${sourceUrl}/posts/${
+    post.name
+  }.html" class="bg-white dark:bg-slate-800 rounded-md px-6 py-8 ring-1 ring-slate-900/5 shadow-xl flex flex-col gap-5">
+            ${
+              !post.cover
+                ? ""
+                : `<div class="aspect-w-4 aspect-h-4 rounded-md overflow-hidden">
+              <img src="${post.cover}" alt="image" class="object-cover" />
+            </div>`
+            }
+            <div class="flex flex-col gap-1">
+              <h2 class="text-2xl text-slate-900 dark:text-white font-semibold tracking-tight">${
+                post.title
+              }</h2>
+              ${
+                post.description
+                  ? `<p class="text-slate-500 dark:text-slate-400">${post.description}</p>`
+                  : ""
+              }
+            </div>
+          </a>`;
 }
 
 ;// CONCATENATED MODULE: ./src/scripts/generateBlog.js
@@ -23718,202 +23815,189 @@ async function writeFile(dirPath, file, content) {
 
 
 
+
 /**
  * Sets up and generates all blog files.
- * 
+ *
  * @param {object} config project configuration
  */
 async function generateBlog(config) {
   /**
-    * TODO
-    * - Add specific style classes for edge case HTML tags
-    * - - Footnotes have no styling
-    * - - Table
-    * - - - Overflows width, no scroll
-    * - - - Headers same color as body
-    * - - - Rows don"t alternate colors
-    * - - - Text no dark mode
-    * - - Code blocks have no syntax highlighting
-    * - Add ID's to headings that consist of the heading text
-    * - Create templates
-    * - - ~Post~
-    * - - ~Posts~
-    * - - ~Home~
-    * - - Header + Nav
-    * - - Footer
-    */
-  const posts = generateAllPosts(config).sort((a, b) => {
-    const date1 = dayjs_min_default()(a.date).format("YYYYMMDD") * 1
-    const date2 = dayjs_min_default()(b.date).format("YYYYMMDD") * 1
-    return date2 - date1
-  })
+   * TODO
+   * - Add specific style classes for edge case HTML tags
+   * - - Footnotes have no styling
+   * - - Table
+   * - - - Overflows width, no scroll
+   * - - - Headers same color as body
+   * - - - Rows don"t alternate colors
+   * - - - Text no dark mode
+   * - - Code blocks have no syntax highlighting
+   * - Add ID's to headings that consist of the heading text
+   * - Create templates
+   * - - ~Post~
+   * - - ~Posts~
+   * - - ~Home~
+   * - - Header + Nav
+   * - - Footer
+   */
+  const posts = fetchAllPosts(config).sort((a, b) => {
+    const date1 = dayjs_min_default()(a.date).format("YYYYMMDD") * 1;
+    const date2 = dayjs_min_default()(b.date).format("YYYYMMDD") * 1;
+    return date2 - date1;
+  });
 
-  generatePosts(config, posts)
-  generateHome(config, posts.slice(0, 8))
+  const configPlus = {
+    ...config,
+    globals: {
+      header: `<html>
+    <head>
+      ={meta}=
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="stylesheet" href="${config.outputUrl}/main.css" />
+    </head>
+    <body class="bg-white dark:bg-slate-900">
+      <main class="container mx-auto flex flex-col gap-12 py-16">
+`, // head [general meta, *replace* meta], nav
+      footer: `    </main>
+      <footer>
+        This will be a footer
+      </footer>
+    </body>
+  </html>
+`, // logo, latest posts, site links [home, about, posts, contact]
+    },
+  };
+
+  generateAllPosts(configPlus, posts);
+  generatePosts(configPlus, posts);
+  generateHome(configPlus, posts.slice(0, 8));
 }
 
 /**
  * Finds and converts markdown posts to html files.
- * 
+ *
  * @param {object} config project configuration
- * @returns {object[]} arposts object
+ * @returns {object[]} posts object
  */
-function generateAllPosts(config) {
-  const postsDir = "posts"
-  const md = new (markdown_it_default())()
-
-  const posts = external_fs_default().readdirSync(external_path_default().join(config.rootPath, postsDir))
-    .filter(file => { return file.endsWith(".md") })
-    .map(postFile => {
-      const postName = postFile.substring(0, postFile.indexOf("."))
-      const postContent = external_fs_default().readFileSync(external_path_default().join(config.rootPath, postsDir, `${postName}.md`), "utf-8")
-      const {body, attributes} = front_matter(postContent)
+function fetchAllPosts(config) {
+  return external_fs_default().readdirSync(external_path_default().join(config.rootPath, config.postsDir))
+    .filter((file) => {
+      return file.endsWith(".md");
+    })
+    .map((postFile) => {
+      const postName = postFile.substring(0, postFile.indexOf("."));
+      const postContent = external_fs_default().readFileSync(
+        external_path_default().join(config.rootPath, config.postsDir, `${postName}.md`),
+        "utf-8"
+      );
+      const { body, attributes } = front_matter(postContent);
 
       return {
-        body: md.render(body),
+        body: body,
         cover: attributes["image"] || attributes["og:image"],
-        date: (attributes["date"] ? dayjs_min_default()(attributes["date"]) : dayjs_min_default()()).format("YYYY-MMMM-DD"),
-        description: attributes["description"] || attributes["og:description"] || "",
+        date: (attributes["date"] ? dayjs_min_default()(attributes["date"]) : dayjs_min_default()()).format(
+          "YYYY-MMMM-DD"
+        ),
+        description:
+          attributes["description"] || attributes["og:description"] || "",
         name: postName,
-        meta: generateMeta(attributes),
-        title: attributes["title"] || attributes["og:title"] || postName
-      }
-    })
+        meta: attributes,
+        title: attributes["title"] || attributes["og:title"] || postName,
+      };
+    });
+}
 
-  const postTemplate = external_fs_default().readFileSync(external_path_default().join(config.actionDir, "src", "templates", "post.html"), "utf-8")
+/**
+ * Generates all single post pages.
+ *
+ * @param {object} config project configuration
+ * @param {object[]} posts posts objects
+ */
+function generateAllPosts(config, posts) {
+  const md = new (markdown_it_default())();
 
-  posts.forEach(post => {
+  const postTemplate = external_fs_default().readFileSync(
+      external_path_default().join(config.actionDir, "src", "templates", "post.html"),
+      "utf-8"
+    )
+    .replace("={header}=", config.globals.header)
+    .replace("={footer}=", config.globals.footer);
+
+  posts.forEach((post) => {
     writeFile(
-      external_path_default().join(config.outputPath, postsDir),
+      external_path_default().join(config.outputPath, config.postsDir),
       `${post.name}.html`,
       postTemplate
-        .replace("={meta}=", post.meta)
-        .replace("={css}=", `${config.outputUrl}/main.css`)
-        .replace("={cover}=", generateCoverImage(post.cover))
-        .replace("={date}=", generateDate(post.date))
-        .replace("={content}=", post.body)
-    )
-  })
+        .replace("={meta}=", metaComponent(post.meta))
+        .replace("={cover}=", coverImageComponent(post.cover))
+        .replace("={date}=", dateComponent(post.date))
+        .replace("={content}=", md.render(post.body))
+    );
+  });
 
-  return posts
+  return posts;
 }
 
 /**
  * Generates posts page.
- * 
+ *
  * @param {object} config project configuration
  * @param {object[]} posts posts objects
  */
 function generatePosts(config, posts) {
-  const postsTemplate = external_fs_default().readFileSync(external_path_default().join(config.actionDir, "src", "templates", "posts.html"), "utf-8")
+  const postsTemplate = external_fs_default().readFileSync(
+      external_path_default().join(config.actionDir, "src", "templates", "posts.html"),
+      "utf-8"
+    )
+    .replace("={header}=", config.globals.header)
+    .replace("={footer}=", config.globals.footer);
+
   writeFile(
     config.outputPath,
     "posts.html",
     postsTemplate
+      .replace("={meta}=", `<title>My Super Awesome Posts!</title>`)
       .replace("={css}=", `${config.outputUrl}/main.css`)
-      .replace("={posts}=", posts.map(post => { return generatePostBlock(post, config.outputUrl) }).join("\n"))
-  )
+      .replace(
+        "={posts}=",
+        posts
+          .map((post) => {
+            return postBlockComponent(post, config.outputUrl);
+          })
+          .join("\n")
+      )
+  );
 }
 
 /**
  * Generates home page.
- * 
+ *
  * @param {object} config project configuration
  * @param {object[]} posts posts objects
  */
 function generateHome(config, posts) {
-  const homeTemplate = external_fs_default().readFileSync(external_path_default().join(config.actionDir, "src", "templates", "home.html"), "utf-8")
+  const homeTemplate = external_fs_default().readFileSync(
+      external_path_default().join(config.actionDir, "src", "templates", "home.html"),
+      "utf-8"
+    )
+    .replace("={header}=", config.globals.header)
+    .replace("={footer}=", config.globals.footer);
+
   writeFile(
     config.outputPath,
     "index.html",
     homeTemplate
+      .replace("={meta}=", `<title>My Super Awesome Blog!</title>`)
       .replace("={css}=", `${config.outputUrl}/main.css`)
-      .replace("={posts}=", posts.map(post => { return generatePostBlock(post, config.outputUrl) }).join("\n"))
-  )
-}
-
-/**
- * Generates meta tags from passed object of attributes.
- * 
- * @param {object} attributes object of attributes, can be empty
- * @returns {string} HTML formatted meta tags
- */
-function generateMeta(attributes) {
-  const exceptions = ["date"]
-
-  let meta = ""
-  for (const attribute in attributes) {
-    if (attribute == "title") {
-      meta += `<title>${attributes[attribute]}</title>`
-        + `<meta property="og:title" content="${attributes[attribute]}" />\n`
-    } else if (attribute == "description") {
-      meta += `<meta name="description" content="${attributes[attribute]}" />\n`
-        + `<meta property="og:description" content="${attributes[attribute]}" />\n`
-    } else if (attribute == "image") {
-      meta += `<meta property="og:image" content="${attributes[attribute]}" />\n`
-    } else if (attribute.startsWith("og:")) {
-      meta += `<meta property="${attribute}" content="${attributes[attribute]}" />\n`
-    } else if (!exceptions.includes(attribute)) {
-      meta += `<meta name="${attribute}" content="${attributes[attribute]}" />\n`
-    }
-  }
-  return meta
-}
-
-/**
- * Generates banner image HTML.
- * 
- * @param {string} imageSrc image source
- * @returns {string} HTML formatted image banner
- */
-function generateCoverImage(imageSrc) {
-  if (!imageSrc) return ""
-  return `<div class="aspect-w-16 aspect-h-8 rounded-xl overflow-hidden">
-    <img src="${imageSrc}" alt="image" class="object-cover" />
-  </div>`
-}
-
-/**
- * Generates highlight image HTML.
- * 
- * @param {string} imageSrc image source
- * @returns {string} HTML formatted image highlight
- */
- function generateHighlightImage(imageSrc) {
-  if (!imageSrc) return ""
-  return `<div class="aspect-w-4 aspect-h-4 rounded-md overflow-hidden">
-    <img src="${imageSrc}" alt="image" class="object-cover" />
-  </div>`
-}
-
-/**
- * Generates banner image HTML.
- * 
- * @param {string} date image source
- * @returns {string} HTML formatted image banner
- */
-function generateDate(date) {
-  const nicedate = dayjs_min_default()(date ? date : "").format("ddd, DD MMMM YYYY")
-
-  return `<div class="mb-2 text-normal text-slate-700 dark:text-slate-400"
-    <time datetime="${date}">${nicedate}</time>
-  </div>`
-}
-
-/**
- * Creates and returns HTML post block.
- * 
- * @param {object} post posts object
- * @returns {string} HTML formatted post block
- */
-function generatePostBlock(post, sourceUrl) {
-  return `          <a href="${sourceUrl}/posts/${post.name}.html" class="bg-white dark:bg-slate-800 rounded-md px-6 py-8 ring-1 ring-slate-900/5 shadow-xl flex flex-col gap-5">
-            ${generateHighlightImage(post.cover)}
-            <div class="flex flex-col gap-1">
-              <h2 class="text-2xl text-slate-900 dark:text-white font-semibold tracking-tight">${post.title}</h2>
-              ${post.description ? `<p class="text-slate-500 dark:text-slate-400">${post.description}</p>` : ""}
-            </div>
-          </a>`
+      .replace(
+        "={posts}=",
+        posts
+          .map((post) => {
+            return postBlockComponent(post, config.outputUrl);
+          })
+          .join("\n")
+      )
+  );
 }
 
 ;// CONCATENATED MODULE: ./src/scripts/prepareTheme.js
@@ -23922,23 +24006,24 @@ function generatePostBlock(post, sourceUrl) {
 
 /**
  * ~~Creates and~~ adds theme files to blog.
- * 
+ *
  * @param {object} config project configuration
  */
 async function prepareTheme(config) {
-  await fetchCss(config)
+  await fetchCss(config);
 }
 
 /**
  * Finds and adds compiled css to blog.
- * 
+ *
  * @param {object} config project configuration
  */
 async function fetchCss(config) {
-  readFile(external_path_default().join(config.actionDir, "dist", "main.css"))
-    .then((cssContent) => {
-      writeFile(external_path_default().join(config.outputPath), "main.css", cssContent) 
-    })
+  readFile(external_path_default().join(config.actionDir, "dist", "main.css")).then(
+    (cssContent) => {
+      writeFile(external_path_default().join(config.outputPath), "main.css", cssContent);
+    }
+  );
 }
 
 ;// CONCATENATED MODULE: ./src/action.js
@@ -23963,6 +24048,7 @@ async function fetchCss(config) {
       actionName: "Ready Markdown Blog",
       outputPath: external_path_default().join(rootPath, "/output"),
       outputUrl: `https://${pusherName}.github.io/${repoName.substring(repoName.indexOf("/") + 1, repoName.length)}`,
+      postsDir: "posts",
       pusherEmail: pusher?.email || process.env.GITHUB_PUSHER_EMAIL,
       pusherName: pusherName,
       repoBranch: "gh-pages",

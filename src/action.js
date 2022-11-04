@@ -19,6 +19,7 @@ import { prepareTheme } from "./scripts/prepareTheme"
       actionName: "Ready Markdown Blog",
       outputPath: path.join(rootPath, "/output"),
       outputUrl: `https://${pusherName}.github.io/${repoName.substring(repoName.indexOf("/") + 1, repoName.length)}`,
+      postsDir: "posts",
       pusherEmail: pusher?.email || process.env.GITHUB_PUSHER_EMAIL,
       pusherName: pusherName,
       repoBranch: "gh-pages",

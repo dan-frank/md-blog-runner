@@ -1,6 +1,33 @@
 import dayjs from "dayjs";
 
 /**
+ * Generates banner image HTML.
+ *
+ * @param {string} imageSrc image source
+ * @returns {string} HTML formatted image banner
+ */
+export function coverImageComponent(imageSrc) {
+  if (!imageSrc) return "";
+  return `<div class="aspect-w-16 aspect-h-8 rounded-xl overflow-hidden">
+    <img src="${imageSrc}" alt="image" class="object-cover" />
+  </div>`;
+}
+
+/**
+ * Generates banner image HTML.
+ *
+ * @param {string} date image source
+ * @returns {string} HTML formatted image banner
+ */
+export function dateComponent(date) {
+  const nicedate = dayjs(date ? date : "").format("ddd, DD MMMM YYYY");
+
+  return `<div class="mb-2 text-normal text-slate-700 dark:text-slate-400"
+    <time datetime="${date}">${nicedate}</time>
+  </div>`;
+}
+
+/**
  * Generates meta tags from passed object of attributes.
  *
  * @param {object} config project configuration
@@ -32,33 +59,6 @@ export function metaComponent(config, attributes) {
 }
 
 /**
- * Generates banner image HTML.
- *
- * @param {string} imageSrc image source
- * @returns {string} HTML formatted image banner
- */
-export function coverImageComponent(imageSrc) {
-  if (!imageSrc) return "";
-  return `<div class="aspect-w-16 aspect-h-8 rounded-xl overflow-hidden">
-    <img src="${imageSrc}" alt="image" class="object-cover" />
-  </div>`;
-}
-
-/**
- * Generates banner image HTML.
- *
- * @param {string} date image source
- * @returns {string} HTML formatted image banner
- */
-export function dateComponent(date) {
-  const nicedate = dayjs(date ? date : "").format("ddd, DD MMMM YYYY");
-
-  return `<div class="mb-2 text-normal text-slate-700 dark:text-slate-400"
-    <time datetime="${date}">${nicedate}</time>
-  </div>`;
-}
-
-/**
  * Creates and returns HTML post block.
  *
  * @param {object} post posts object
@@ -86,4 +86,31 @@ export function postBlockComponent(post, sourceUrl) {
               }
             </div>
           </a>`;
+}
+
+/**
+ * Creates and returns HTML for tags list.
+ *
+ * @param {object} config project configuration
+ * @param {string[]} tags list of unique tags
+ * @returns
+ */
+export function tagsComponent(config, tags) {
+  if (!tags) if (tags.length == 0) return "";
+
+  return `<div class="flex flex-row gap-4">
+      ${tags
+        .map(
+          (tag) =>
+            `<a
+            href="${config.outputUrl}/${config.tagsDir}/${tag
+              .toLowerCase()
+              .replace(/\s/g, "-")}.html"
+            class="inline-block px-2 py-1 rounded-full bg-blue-200 text-blue-700 dark:bg-blue-700 dark:text-blue-200 text-xs font-semibold tracking-wide"
+            >
+            ${tag}
+          </a>`
+        )
+        .join("\n")}
+    </div>`;
 }

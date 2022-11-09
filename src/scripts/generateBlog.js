@@ -10,6 +10,7 @@ import {
   dateComponent,
   metaComponent,
   postBlockComponent,
+  tagsComponent,
 } from "./components";
 
 /**
@@ -33,18 +34,21 @@ export async function generateBlog(config) {
    * - - ~Post~
    * - - ~Posts~
    * - - ~Home~
-   * - - Header + Nav
-   * - - Footer
+   * - - ~Header + Nav~
+   * - - ~Footer~
    */
   const posts = fetchAllPosts(config).sort((a, b) => {
     const date1 = dayjs(a.date).format("YYYYMMDD") * 1;
     const date2 = dayjs(b.date).format("YYYYMMDD") * 1;
     return date2 - date1;
   });
+  const taggedPosts = groupPostsByTag(posts);
+  const tags = Object.keys(taggedPosts);
   const configPlus = getConfigPlus(config);
 
   generateAllPosts(configPlus, posts);
-  generatePosts(configPlus, posts);
+  generatePosts(configPlus, posts, tags);
+  generateTagPosts(configPlus, taggedPosts);
   generateHome(configPlus, posts.slice(0, 8));
 }
 
@@ -78,9 +82,27 @@ function fetchAllPosts(config) {
           attributes["description"] || attributes["og:description"] || "",
         name: postName,
         meta: attributes,
+        tags: ("" + attributes["tags"]).split(", ") || "",
         title: attributes["title"] || attributes["og:title"] || postName,
       };
     });
+}
+
+/**
+ * Create an object of tags linked to tagged posts.
+ *
+ * @param {object[]} posts all posts
+ */
+function groupPostsByTag(posts) {
+  let tagged = {};
+  for (let i = 0; i < posts.length; i++) {
+    const tags = posts[i].tags ? posts[i].tags : ["untagged"];
+    tags.forEach((tag) => {
+      if (!(tag in tagged)) tagged[tag] = [];
+      tagged[tag].push(posts[i]);
+    });
+  }
+  return tagged;
 }
 
 /**
@@ -109,6 +131,7 @@ function generateAllPosts(config, posts) {
         .replace("={cover}=", coverImageComponent(post.cover))
         .replace("={date}=", dateComponent(post.date))
         .replace("={content}=", md.render(post.body))
+        .replace("={tags}=", tagsComponent(config, post.tags))
     );
   });
 
@@ -119,9 +142,9 @@ function generateAllPosts(config, posts) {
  * Generates posts page.
  *
  * @param {object} config project configuration
- * @param {object[]} posts posts objects
+ * @param {string[]} tags list of tags used on site
  */
-function generatePosts(config, posts) {
+function generatePosts(config, posts, tags) {
   const postsTemplate = fs
     .readFileSync(
       path.join(config.actionDir, "src", "templates", "posts.html"),
@@ -138,7 +161,7 @@ function generatePosts(config, posts) {
         "={meta}=",
         `<title>My Super Awesome Posts! - ${config.blogName}</title>`
       )
-      .replace("={css}=", `${config.outputUrl}/main.css`)
+      .replace("={tags}=", tagsComponent(config, tags))
       .replace(
         "={posts}=",
         posts
@@ -148,6 +171,40 @@ function generatePosts(config, posts) {
           .join("\n")
       )
   );
+}
+
+/**
+ * Create tag pages based on passed posts.
+ *
+ * @param {object} config project configuration
+ * @param {object} taggedPosts tag object of posts
+ */
+function generateTagPosts(config, taggedPosts) {
+  const tagTemplate = fs
+    .readFileSync(
+      path.join(config.actionDir, "src", "templates", "tag.html"),
+      "utf-8"
+    )
+    .replace("={header}=", config.globals.header)
+    .replace("={footer}=", config.globals.footer);
+
+  Object.entries(taggedPosts).forEach(([tag, posts]) => {
+    writeFile(
+      path.join(config.outputPath, config.tagsDir),
+      `${tag.toLowerCase().replace(/\s/g, "-")}.html`,
+      tagTemplate
+        .replace("={meta}=", `<title>${tag} Posts - ${config.blogName}</title>`)
+        .replace("={tag}=", tag)
+        .replace(
+          "={posts}=",
+          posts
+            .map((post) => {
+              return postBlockComponent(post, config.outputUrl);
+            })
+            .join("\n")
+        )
+    );
+  });
 }
 
 /**
@@ -170,7 +227,6 @@ function generateHome(config, posts) {
     "index.html",
     homeTemplate
       .replace("={meta}=", `<title>${config.blogName}</title>`)
-      .replace("={css}=", `${config.outputUrl}/main.css`)
       .replace(
         "={posts}=",
         posts
@@ -186,7 +242,7 @@ function generateHome(config, posts) {
  * Generates config + header and footer parts.
  *
  * @param {object} config project configuration
- * @param {object[]} posts posts objects
+ * @returns {object} action config with extra information for theme generation
  */
 function getConfigPlus(config) {
   return {
@@ -199,7 +255,7 @@ function getConfigPlus(config) {
       <link rel="stylesheet" href="${config.outputUrl}/main.css" />
     </head>
     <body class="min-h-screen flex flex-col bg-white dark:bg-slate-900">
-      <div class="grow-0 shrink-0 relative bg-white dark:bg-slate-800 border-b-2 border-gray-100 dark:border-slate-900">
+      <div class="grow-0 shrink-0 relative bg-gray-100 dark:bg-slate-800 border-b-2 border-gray-200 dark:border-slate-900">
         <div class="mx-auto max-w-7xl px-4 sm:px-6">
           <div class="flex items-center justify-between py-6 md:justify-start md:space-x-10">
             <div class="flex justify-start lg:w-0 lg:flex-1">
@@ -217,11 +273,23 @@ function getConfigPlus(config) {
               </button>
             </div>
             <nav class="hidden space-x-10 md:flex md:items-center">
-              <a href="${config.outputUrl}" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Home</a>
-              <a href="${config.outputUrl}/posts.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Posts</a>
+              <a
+                href="${config.outputUrl}"
+                class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+              >Home</a>
+              <a
+                href="${config.outputUrl}/posts.html"
+                class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+              >Posts</a>
               <!--
-              <a href="${config.outputUrl}/about.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">About</a>
-              <a href="${config.outputUrl}/contact.html" class="ml-8 inline-flex items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700">Contact</a>
+              <a
+                href="${config.outputUrl}/about.html"
+                class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+              >About</a>
+              <a
+                href="${config.outputUrl}/contact.html"
+                class="ml-8 inline-flex items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700"
+              >Contact</a>
               -->
             </nav>
           </div>
@@ -231,7 +299,11 @@ function getConfigPlus(config) {
             <div class="px-5 pt-5 pb-6">
               <div class="flex items-center justify-between">
                 <div>
-                  <img class="h-8 w-auto" src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600" alt="${config.blogName}">
+                  <img
+                    class="h-8 w-auto"
+                    src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600"
+                    alt="${config.blogName}"
+                  >
                 </div>
                 <div class="-mr-2">
                   <button type="button" class="inline-flex items-center justify-center rounded-md bg-white p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
@@ -244,10 +316,19 @@ function getConfigPlus(config) {
               </div>
               <div class="mt-6">
                 <nav class="grid gap-y-8">
-                <a href="${config.outputUrl}" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Home</a>
-                <a href="${config.outputUrl}/posts.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">Posts</a>
+                <a
+                  href="${config.outputUrl}"
+                  class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+                >Home</a>
+                <a
+                  href="${config.outputUrl}/posts.html"
+                  class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+                >Posts</a>
                 <!--
-                <a href="${config.outputUrl}/about.html" class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200">About</a>
+                <a
+                  href="${config.outputUrl}/about.html"
+                  class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+                >About</a>
                 -->
                 </nav>
               </div>
@@ -255,7 +336,10 @@ function getConfigPlus(config) {
             <!--
             <div class="space-y-6 py-6 px-5">
               <div>
-                <a href="${config.outputUrl}/contact.html" class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm">Contact</a>
+                <a
+                  href="${config.outputUrl}/contact.html"
+                  class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm"
+                >Contact</a>
               </div>
             </div>
             -->

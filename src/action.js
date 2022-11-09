@@ -32,6 +32,7 @@ import { prepareTheme } from "./scripts/prepareTheme";
       repoName: repoName,
       rootPath: rootPath,
       repoUrl: `https://${`x-access-token:${repoToken}`}@github.com/${repoName}.git`,
+      tagsDir: "tags",
     };
 
     await generateBlog(config);

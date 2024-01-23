@@ -6,11 +6,16 @@ import MarkdownIt from "markdown-it";
 import path from "path";
 import { writeFile } from "./files.js";
 import {
+  buttonComponent,
   coverImageComponent,
   dateComponent,
+  featureComponent,
+  featuredPersonComponent,
   metaComponent,
   postBlockComponent,
+  recentPostsComponent,
   tagsComponent,
+  titleComponent,
 } from "./components";
 
 /**
@@ -48,8 +53,17 @@ export async function generateBlog(config) {
 
   generateAllPosts(configPlus, posts);
   generatePosts(configPlus, posts, tags);
-  generateTagPosts(configPlus, taggedPosts);
-  generateHome(configPlus, posts.slice(0, 8));
+  generateTagPosts(configPlus, taggedPosts, tags);
+  generateHome(configPlus, posts, tags);
+  generateAbout(configPlus, posts);
+  generateContact(configPlus);
+}
+
+function renderMarkdownAsHtml(content) {
+  const md = new MarkdownIt({
+    html: true,
+  });
+  return md.render(content);
 }
 
 /**
@@ -68,15 +82,19 @@ function fetchAllPosts(config) {
       const postName = postFile.substring(0, postFile.indexOf("."));
       const postContent = fs.readFileSync(
         path.join(config.rootPath, config.postsDir, `${postName}.md`),
-        "utf-8"
+        "utf-8",
       );
       const { body, attributes } = fm(postContent);
 
       return {
         body: body,
-        cover: attributes["image"] || attributes["og:image"],
+        cover: {
+          url: attributes["image"] || attributes["og:image"],
+          description: attributes["image:description"] || undefined,
+          source: attributes["image:source"] || undefined,
+        },
         date: (attributes["date"] ? dayjs(attributes["date"]) : dayjs()).format(
-          "YYYY-MMMM-DD"
+          "YYYY-MMMM-DD",
         ),
         description:
           attributes["description"] || attributes["og:description"] || "",
@@ -112,12 +130,10 @@ function groupPostsByTag(posts) {
  * @param {object[]} posts posts objects
  */
 function generateAllPosts(config, posts) {
-  const md = new MarkdownIt();
-
   const postTemplate = fs
     .readFileSync(
       path.join(config.actionDir, "src", "templates", "post.html"),
-      "utf-8"
+      "utf-8",
     )
     .replace("={header}=", config.globals.header)
     .replace("={footer}=", config.globals.footer);
@@ -130,8 +146,8 @@ function generateAllPosts(config, posts) {
         .replace("={meta}=", metaComponent(config, post.meta))
         .replace("={cover}=", coverImageComponent(post.cover))
         .replace("={date}=", dateComponent(post.date))
-        .replace("={content}=", md.render(post.body))
-        .replace("={tags}=", tagsComponent(config, post.tags))
+        .replace("={content}=", renderMarkdownAsHtml(post.body))
+        .replace("={tags}=", tagsComponent(config, post.tags)),
     );
   });
 
@@ -142,13 +158,14 @@ function generateAllPosts(config, posts) {
  * Generates posts page.
  *
  * @param {object} config project configuration
+ * @param {object[]} posts post objects array
  * @param {string[]} tags list of tags used on site
  */
 function generatePosts(config, posts, tags) {
   const postsTemplate = fs
     .readFileSync(
       path.join(config.actionDir, "src", "templates", "posts.html"),
-      "utf-8"
+      "utf-8",
     )
     .replace("={header}=", config.globals.header)
     .replace("={footer}=", config.globals.footer);
@@ -159,8 +176,9 @@ function generatePosts(config, posts, tags) {
     postsTemplate
       .replace(
         "={meta}=",
-        `<title>My Super Awesome Posts! - ${config.blogName}</title>`
+        `<title>All posts - ${config.branding.blogName}</title>`,
       )
+      .replace("={title}=", titleComponent("All posts"))
       .replace("={tags}=", tagsComponent(config, tags))
       .replace(
         "={posts}=",
@@ -168,8 +186,8 @@ function generatePosts(config, posts, tags) {
           .map((post) => {
             return postBlockComponent(post, config.outputUrl);
           })
-          .join("\n")
-      )
+          .join("\n"),
+      ),
   );
 }
 
@@ -177,13 +195,14 @@ function generatePosts(config, posts, tags) {
  * Create tag pages based on passed posts.
  *
  * @param {object} config project configuration
- * @param {object} taggedPosts tag object of posts
+ * @param {object[]} taggedPosts tag object of posts
+ * @param {string[]} tags list of tags used on site
  */
-function generateTagPosts(config, taggedPosts) {
+function generateTagPosts(config, taggedPosts, tags) {
   const tagTemplate = fs
     .readFileSync(
       path.join(config.actionDir, "src", "templates", "tag.html"),
-      "utf-8"
+      "utf-8",
     )
     .replace("={header}=", config.globals.header)
     .replace("={footer}=", config.globals.footer);
@@ -193,7 +212,15 @@ function generateTagPosts(config, taggedPosts) {
       path.join(config.outputPath, config.tagsDir),
       `${tag.toLowerCase().replace(/\s/g, "-")}.html`,
       tagTemplate
-        .replace("={meta}=", `<title>${tag} Posts - ${config.blogName}</title>`)
+        .replace(
+          "={meta}=",
+          `<title>${tag} posts - ${config.branding.blogName}</title>`,
+        )
+        .replace(
+          "={title}=",
+          titleComponent(`<span class="font-extrabold">${tag}</span> posts!`),
+        )
+        .replace("={tags}=", tagsComponent(config, tags))
         .replace("={tag}=", tag)
         .replace(
           "={posts}=",
@@ -201,8 +228,8 @@ function generateTagPosts(config, taggedPosts) {
             .map((post) => {
               return postBlockComponent(post, config.outputUrl);
             })
-            .join("\n")
-        )
+            .join("\n"),
+        ),
     );
   });
 }
@@ -211,30 +238,165 @@ function generateTagPosts(config, taggedPosts) {
  * Generates home page.
  *
  * @param {object} config project configuration
- * @param {object[]} posts posts objects
+ * @param {object[]} posts post objects array
+ * @param {string[]} tags list of tags used on site
  */
-function generateHome(config, posts) {
+function generateHome(config, posts, tags) {
   const homeTemplate = fs
     .readFileSync(
       path.join(config.actionDir, "src", "templates", "home.html"),
-      "utf-8"
+      "utf-8",
+    )
+    .replace("={header}=", config.globals.header)
+    .replace("={footer}=", config.globals.footer);
+
+  const featuredPost = posts[0];
+  const recentPosts = posts.slice(1, 7);
+
+  writeFile(
+    config.outputPath,
+    "index.html",
+    homeTemplate
+      .replace("={meta}=", `<title>${config.branding.blogName}</title>`)
+      .replace("={title}=", titleComponent(config.branding.blogName))
+      .replace(
+        "={feature}=",
+        featuredPost ? featureComponent(config.outputUrl, featuredPost) : "",
+      )
+      .replace("={recentPosts}=", recentPostsComponent(config, recentPosts))
+      .replace("={tags}=", tagsComponent(config, tags)),
+  );
+}
+
+/**
+ * Generates about page.
+ *
+ * @param {object} config project configuration
+ * @param {object[]} posts post objects array
+ */
+function generateAbout(config, posts) {
+  const aboutPages = fs
+    .readdirSync(path.join(config.rootPath, config.pagesDir))
+    .filter((file) => {
+      return file.endsWith("about.md");
+    })
+    .map((pageFile) => {
+      const pageName = pageFile.substring(0, pageFile.indexOf("."));
+      const pageContent = fs.readFileSync(
+        path.join(config.rootPath, config.pagesDir, `${pageName}.md`),
+        "utf-8",
+      );
+      const { body, attributes } = fm(pageContent);
+
+      return {
+        body: body,
+        cover: {
+          url: attributes["image"] || attributes["og:image"],
+          description: attributes["image:description"] || undefined,
+          source: attributes["image:source"] || undefined,
+        },
+        description:
+          attributes["description"] || attributes["og:description"] || "",
+        name: pageName,
+        meta: attributes,
+        title: attributes["title"] || attributes["og:title"] || pageName,
+      };
+    });
+
+  if (aboutPages.length <= 0) {
+    return;
+  }
+  const aboutPage = aboutPages[0];
+
+  const recentPosts = posts.slice(0, 6);
+
+  const aboutTemplate = fs
+    .readFileSync(
+      path.join(config.actionDir, "src", "templates", "about.html"),
+      "utf-8",
     )
     .replace("={header}=", config.globals.header)
     .replace("={footer}=", config.globals.footer);
 
   writeFile(
     config.outputPath,
-    "index.html",
-    homeTemplate
-      .replace("={meta}=", `<title>${config.blogName}</title>`)
+    "about.html",
+    aboutTemplate
       .replace(
-        "={posts}=",
-        posts
-          .map((post) => {
-            return postBlockComponent(post, config.outputUrl);
-          })
-          .join("\n")
+        "={meta}=",
+        `<title>About me - ${config.branding.blogName}</title>`,
       )
+      .replace(
+        "={featuredPerson}=",
+        featuredPersonComponent(
+          config.outputUrl,
+          aboutPage.title,
+          aboutPage.description,
+          aboutPage.cover,
+        ),
+      )
+      .replace("={about}=", renderMarkdownAsHtml(aboutPage.body))
+      .replace("={recentPosts}=", recentPostsComponent(config, recentPosts)),
+  );
+}
+
+/**
+ * Generates contact page.
+ *
+ * @param {object} config project configuration
+ * @param {object[]} posts post objects array
+ */
+function generateContact(config) {
+  const contactPages = fs
+    .readdirSync(path.join(config.rootPath, config.pagesDir))
+    .filter((file) => {
+      return file.endsWith("contact.md");
+    })
+    .map((pageFile) => {
+      const pageName = pageFile.substring(0, pageFile.indexOf("."));
+      const pageContent = fs.readFileSync(
+        path.join(config.rootPath, config.pagesDir, `${pageName}.md`),
+        "utf-8",
+      );
+      const { body, attributes } = fm(pageContent);
+
+      return {
+        body: body,
+        cover: {
+          url: attributes["image"] || attributes["og:image"],
+          description: attributes["image:description"] || undefined,
+          source: attributes["image:source"] || undefined,
+        },
+        description:
+          attributes["description"] || attributes["og:description"] || "",
+        name: pageName,
+        meta: attributes,
+        title: attributes["title"] || attributes["og:title"] || pageName,
+      };
+    });
+
+  if (contactPages.length <= 0) {
+    return;
+  }
+  const contactPage = contactPages[0];
+
+  const contactTemplate = fs
+    .readFileSync(
+      path.join(config.actionDir, "src", "templates", "contact.html"),
+      "utf-8",
+    )
+    .replace("={header}=", config.globals.header)
+    .replace("={footer}=", config.globals.footer);
+
+  writeFile(
+    config.outputPath,
+    "contact.html",
+    contactTemplate
+      .replace(
+        "={meta}=",
+        `<title>Contact me - ${config.branding.blogName}</title>`,
+      )
+      .replace("={content}=", renderMarkdownAsHtml(contactPage.body)),
   );
 }
 
@@ -252,6 +414,8 @@ function getConfigPlus(config) {
     <head>
       ={meta}=
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      ${config.branding.faviconUrl ? `<link rel="icon" href="${config.branding.faviconUrl}" />` : ""}
+      <link rel="icon" type="image/x-icon" href="">
       <link rel="stylesheet" href="${config.outputUrl}/main.css" />
     </head>
     <body class="min-h-screen flex flex-col bg-white dark:bg-slate-900">
@@ -260,8 +424,12 @@ function getConfigPlus(config) {
           <div class="flex items-center justify-between py-6 md:justify-start md:space-x-10">
             <div class="flex justify-start lg:w-0 lg:flex-1">
               <a href="${config.outputUrl}">
-                <span class="sr-only">${config.blogName}</span>
-                <img class="h-8 w-auto sm:h-10" src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600" alt="">
+                <span class="sr-only">${config.branding.blogName}</span>
+                <img
+                  class="h-8 w-auto sm:h-10"
+                  src="${config.branding.logoUrl}"
+                  alt="${config.branding.blogName}"
+                >
               </a>
             </div>
             <div class="-my-2 -mr-2 md:hidden">
@@ -281,16 +449,11 @@ function getConfigPlus(config) {
                 href="${config.outputUrl}/posts.html"
                 class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
               >Posts</a>
-              <!--
               <a
                 href="${config.outputUrl}/about.html"
                 class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
               >About</a>
-              <a
-                href="${config.outputUrl}/contact.html"
-                class="ml-8 inline-flex items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-indigo-700"
-              >Contact</a>
-              -->
+              ${buttonComponent(`${config.outputUrl}/contact.html`, "Contact")}
             </nav>
           </div>
         </div>
@@ -301,8 +464,8 @@ function getConfigPlus(config) {
                 <div>
                   <img
                     class="h-8 w-auto"
-                    src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600"
-                    alt="${config.blogName}"
+                    src="${config.branding.logoUrl}"
+                    alt="${config.branding.blogName}"
                   >
                 </div>
                 <div class="-mr-2">
@@ -316,54 +479,51 @@ function getConfigPlus(config) {
               </div>
               <div class="mt-6">
                 <nav class="grid gap-y-8">
-                <a
-                  href="${config.outputUrl}"
-                  class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
-                >Home</a>
-                <a
-                  href="${config.outputUrl}/posts.html"
-                  class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
-                >Posts</a>
-                <!--
-                <a
-                  href="${config.outputUrl}/about.html"
-                  class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
-                >About</a>
-                -->
+                  <a
+                    href="${config.outputUrl}"
+                    class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+                  >Home</a>
+                  <a
+                    href="${config.outputUrl}/posts.html"
+                    class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+                  >Posts</a>
+                  <a
+                    href="${config.outputUrl}/about.html"
+                    class="text-base font-medium text-gray-500 hover:text-gray-900 dark:text-white dark:hover:text-gray-200"
+                  >About</a>
                 </nav>
               </div>
             </div>
-            <!--
             <div class="space-y-6 py-6 px-5">
-              <div>
-                <a
-                  href="${config.outputUrl}/contact.html"
-                  class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-base font-medium text-white shadow-sm"
-                >Contact</a>
-              </div>
+              ${buttonComponent(`${config.outputUrl}/contact.html`, "Contact")}
             </div>
-            -->
           </div>
         </div>
       </div>
       <main class="grow-0 shrink-0 mx-auto max-w-7xl w-full flex flex-col gap-12 py-16">
-`, // TODO generic meta, rss feed
+`, // TODO: generic meta, rss feed
       footer: `    </main>
       <footer class="grow shrink-0 bg-gray-100 dark:bg-slate-800">
         <div class="mx-auto max-w-7xl">
-          <div class="flex flex-col justify-center text-gray-800 p-4 border-t-2 border-gray-100 md:flex-row md:justify-between dark:justify-center dark:text-gray-100 dark:border-slate-900">
+          <div class="flex flex-col gap-2 justify-center text-gray-800 p-4 border-t-2 border-gray-100 md:flex-row md:justify-between dark:justify-center dark:text-gray-100 dark:border-slate-900">
             <p class="text-slate-500 dark:text-slate-400">
-              &copy; 2021 Copyright: <a class="text-gray-700 dark:text-gray-200" href="${config.outputUrl}">${config.blogName}</a>
-            </p>
-            <p class="text-slate-500 dark:text-slate-400">
-              Social links...
+              &copy; ${new Date().getFullYear()} Copyright: <a class="text-gray-700 dark:text-gray-200" href="${config.outputUrl}">${config.branding.blogName}</a>
             </p>
           </div>
         </div>
       </footer>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" integrity="sha512-Jk4AqjWsdSzSWCSuQTfYRIF84Rq/eV0G2+tu07byYwHcbTGfdmLrHjUSwvzp5HvbiqK4ibmNwdcG49Y5RGYPTg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+      <script>
+        document.addEventListener("DOMContentLoaded", (event) => {
+          document.querySelectorAll("pre code").forEach((el) => {
+            hljs.highlightElement(el);
+          });
+        });
+      </script>
     </body>
   </html>
-`, // TODO Optional newletter signup / maybe logo, latest posts, site links [home, about, posts, contact]
+`, // TODO: Optional newletter signup / maybe logo, latest posts, site links [home, about, posts, contact]
     },
   };
 }

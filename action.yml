@@ -7,6 +7,18 @@ inputs:
     description: "Only customise this token if you want to push to another GitHub repository"
     required: true
     default: ${{ github.token }}
+  URL:
+    description: Custom URL to use instead of default GitHub pages URL
+    required: false
+  LOGO_URL:
+    description: URL for site logo
+    required: false
+  FAVICON_URL:
+    description: URL for site favicon
+    required: false
+  BLOG_NAME:
+    description: Blogs name
+    required: false
 
 runs:
   using: "node16"

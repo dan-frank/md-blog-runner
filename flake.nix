@@ -19,6 +19,8 @@
           shellHook = ''
             if [ ! -d "node_modules" ]
             then
+              yarn add caniuse-lite --dev
+              npx update-browserslist-db@latest
               yarn install
             fi
 
